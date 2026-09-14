@@ -133,7 +133,7 @@ export default function LoginPage() {
           New User?
 
           <span
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/signup")}
             className="ml-1 text-red-600 font-medium cursor-pointer hover:underline"
           >
             Create an account
