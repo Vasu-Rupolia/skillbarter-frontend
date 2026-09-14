@@ -68,7 +68,9 @@ export default function ChatPopup({
     useRef<Blob[]>([]);
 
   const typingTimeout =
-    useRef<any>(null);
+    useRef<ReturnType<typeof setTimeout> | null>(
+      null
+    );
 
   const IMAGE_BASE_URL =
     process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
@@ -87,15 +89,14 @@ export default function ChatPopup({
 
     const loadMessages = async () => {
       try {
-        const response =
-          await API.get(
-            `/chat/messages/${conversation._id}?page=1`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+        const response = await API.get(
+          `/chat/messages/${conversation._id}?page=1`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         setMessages(
           response.data.messages || []
@@ -117,9 +118,7 @@ export default function ChatPopup({
   useEffect(() => {
     if (!socket) return;
 
-    const handler = (
-      message: Message
-    ) => {
+    const handler = (message: Message) => {
       if (
         message.conversationId !==
         conversation._id
@@ -158,9 +157,7 @@ export default function ChatPopup({
   useEffect(() => {
     if (!socket) return;
 
-    const typingHandler = (
-      data: any
-    ) => {
+    const typingHandler = (data: any) => {
       if (
         data?.sender ===
         conversation.user._id
@@ -209,6 +206,22 @@ export default function ChatPopup({
 
   /*
   |--------------------------------------------------------------------------
+  | CLEANUP TYPING TIMER
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeout.current) {
+        clearTimeout(
+          typingTimeout.current
+        );
+      }
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
   | SCROLL
   |--------------------------------------------------------------------------
   */
@@ -219,11 +232,14 @@ export default function ChatPopup({
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages, minimized]);
+  }, [
+    messages,
+    minimized,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
-  | SEND
+  | SEND MESSAGE
   |--------------------------------------------------------------------------
   */
 
@@ -241,7 +257,7 @@ export default function ChatPopup({
         {
           conversationId:
             conversation._id,
-          text: input,
+          text: input.trim(),
           type: "text",
         },
         {
@@ -292,9 +308,11 @@ export default function ChatPopup({
       recorder.ondataavailable = (
         event
       ) => {
-        audioChunksRef.current.push(
-          event.data
-        );
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(
+            event.data
+          );
+        }
       };
 
       recorder.onstop = async () => {
@@ -358,7 +376,13 @@ export default function ChatPopup({
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !==
+        "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
 
     setRecording(false);
   };
@@ -382,9 +406,11 @@ export default function ChatPopup({
         conversation.user._id,
     });
 
-    clearTimeout(
-      typingTimeout.current
-    );
+    if (typingTimeout.current) {
+      clearTimeout(
+        typingTimeout.current
+      );
+    }
 
     typingTimeout.current =
       setTimeout(() => {
@@ -409,28 +435,86 @@ export default function ChatPopup({
     <div
       className="
         w-[340px]
-        max-w-[calc(100vw-32px)]
+        max-w-[calc(100vw-16px)]
+        sm:max-w-[calc(100vw-32px)]
+
         bg-white
         rounded-t-xl
         shadow-2xl
         border
         border-gray-200
+
         overflow-hidden
+
+        flex
+        flex-col
+
+        transition-all
       "
     >
       {/* HEADER */}
 
-      <div className="h-12 bg-white border-b flex items-center justify-between px-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
+      <div
+        className="
+          h-12
+          min-h-12
+
+          bg-white
+          border-b
+
+          flex
+          items-center
+          justify-between
+
+          px-3
+          sm:px-3
+
+          gap-2
+        "
+      >
+        {/* USER */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            min-w-0
+            flex-1
+          "
+        >
+          <div className="relative flex-shrink-0">
+            <div
+              className="
+                w-8
+                h-8
+                rounded-full
+                overflow-hidden
+                bg-gray-200
+              "
+            >
               {conversation.user.image ? (
                 <img
                   src={`${IMAGE_BASE_URL}${conversation.user.image}`}
-                  className="w-full h-full object-cover"
+                  className="
+                    w-full
+                    h-full
+                    object-cover
+                  "
+                  alt=""
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs font-semibold">
+                <div
+                  className="
+                    w-full
+                    h-full
+                    flex
+                    items-center
+                    justify-center
+                    text-xs
+                    font-semibold
+                  "
+                >
                   {conversation.user.name?.charAt(
                     0
                   )}
@@ -441,16 +525,42 @@ export default function ChatPopup({
             {onlineUsers.includes(
               conversation.user._id
             ) && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-white" />
+              <span
+                className="
+                  absolute
+                  bottom-0
+                  right-0
+
+                  w-2.5
+                  h-2.5
+
+                  bg-green-500
+                  rounded-full
+                  border
+                  border-white
+                "
+              />
             )}
           </div>
 
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">
+          <div className="min-w-0 flex-1">
+            <p
+              className="
+                font-semibold
+                text-sm
+                truncate
+              "
+            >
               {conversation.user.name}
             </p>
 
-            <p className="text-[10px] text-gray-500">
+            <p
+              className="
+                text-[10px]
+                text-gray-500
+                truncate
+              "
+            >
               {onlineUsers.includes(
                 conversation.user._id
               )
@@ -460,22 +570,51 @@ export default function ChatPopup({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* ACTIONS */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-0.5
+            flex-shrink-0
+          "
+        >
           <button
+            type="button"
             onClick={() =>
               setMinimized(
                 (previous) =>
                   !previous
               )
             }
-            className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            className="
+              w-7
+              h-7
+              rounded-full
+              hover:bg-gray-100
+              active:bg-gray-200
+              flex
+              items-center
+              justify-center
+            "
           >
             <Minus size={16} />
           </button>
 
           <button
+            type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            className="
+              w-7
+              h-7
+              rounded-full
+              hover:bg-gray-100
+              active:bg-gray-200
+              flex
+              items-center
+              justify-center
+            "
           >
             <X size={16} />
           </button>
@@ -486,7 +625,24 @@ export default function ChatPopup({
         <>
           {/* MESSAGES */}
 
-          <div className="h-[360px] overflow-y-auto p-3 space-y-2 bg-gray-50">
+          <div
+            className="
+              h-[min(360px,calc(100vh-170px))]
+
+              sm:h-[360px]
+
+              overflow-y-auto
+
+              p-2.5
+              sm:p-3
+
+              space-y-2
+
+              bg-gray-50
+
+              overscroll-contain
+            "
+          >
             {messages.map(
               (message, index) => {
                 const mine =
@@ -507,10 +663,16 @@ export default function ChatPopup({
                   >
                     <div
                       className={`
-                        max-w-[78%]
+                        max-w-[82%]
+                        sm:max-w-[78%]
+
                         px-3
                         py-2
+
                         rounded-2xl
+
+                        break-words
+
                         ${
                           mine
                             ? "bg-blue-600 text-white rounded-br-md"
@@ -522,17 +684,25 @@ export default function ChatPopup({
                       "voice" ? (
                         <audio
                           controls
-                          className="max-w-full"
+                          className="
+                            max-w-full
+                            w-[220px]
+                            sm:w-[240px]
+                          "
                         >
                           <source
                             src={`${AUDIO_BASE_URL}${message.audio}`}
                           />
                         </audio>
                       ) : (
-                        <p className="text-sm break-words">
-                          {
-                            message.text
-                          }
+                        <p
+                          className="
+                            text-sm
+                            break-words
+                            whitespace-pre-wrap
+                          "
+                        >
+                          {message.text}
                         </p>
                       )}
 
@@ -541,6 +711,7 @@ export default function ChatPopup({
                           text-[9px]
                           text-right
                           mt-1
+
                           ${
                             mine
                               ? "text-blue-100"
@@ -568,10 +739,16 @@ export default function ChatPopup({
             )}
 
             {isTyping && (
-              <div className="text-xs text-gray-500">
+              <div
+                className="
+                  text-xs
+                  text-gray-500
+                  px-1
+                "
+              >
                 {
-                  conversation
-                    .user.name
+                  conversation.user
+                    .name
                 }{" "}
                 is typing...
               </div>
@@ -584,8 +761,23 @@ export default function ChatPopup({
 
           {/* INPUT */}
 
-          <div className="border-t p-2">
-            <div className="flex items-center gap-2">
+          <div
+            className="
+              border-t
+              p-2
+
+              bg-white
+
+              flex-shrink-0
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                gap-1.5
+              "
+            >
               <input
                 value={input}
                 onChange={(event) =>
@@ -598,18 +790,27 @@ export default function ChatPopup({
                     event.key ===
                     "Enter"
                   ) {
+                    event.preventDefault();
                     sendMessage();
                   }
                 }}
                 placeholder="Type a message..."
                 className="
                   flex-1
+                  min-w-0
+
                   h-10
+
                   px-3
+
                   rounded-full
+
                   border
+
                   text-sm
+
                   outline-none
+
                   focus:ring-2
                   focus:ring-blue-500
                 "
@@ -617,30 +818,90 @@ export default function ChatPopup({
 
               {!recording ? (
                 <button
+                  type="button"
                   onClick={
                     startRecording
                   }
                   disabled={
                     uploadingVoice
                   }
-                  className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+                  className="
+                    w-10
+                    h-10
+                    min-w-10
+
+                    rounded-full
+
+                    bg-gray-100
+
+                    flex
+                    items-center
+                    justify-center
+
+                    flex-shrink-0
+
+                    hover:bg-gray-200
+                    active:bg-gray-300
+
+                    disabled:opacity-50
+                  "
                 >
                   <Mic size={17} />
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={
                     stopRecording
                   }
-                  className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center"
+                  className="
+                    w-10
+                    h-10
+                    min-w-10
+
+                    rounded-full
+
+                    bg-red-500
+                    text-white
+
+                    flex
+                    items-center
+                    justify-center
+
+                    flex-shrink-0
+                  "
                 >
                   <Square size={15} />
                 </button>
               )}
 
               <button
+                type="button"
                 onClick={sendMessage}
-                className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center"
+                disabled={
+                  !input.trim()
+                }
+                className="
+                  w-10
+                  h-10
+                  min-w-10
+
+                  rounded-full
+
+                  bg-blue-600
+                  text-white
+
+                  flex
+                  items-center
+                  justify-center
+
+                  flex-shrink-0
+
+                  hover:bg-blue-700
+                  active:bg-blue-800
+
+                  disabled:opacity-50
+                "
               >
                 <Send size={16} />
               </button>
