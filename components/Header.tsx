@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import API from "@/lib/api";
 import Link from "next/link";
-import { Users, User, Settings, LogOut, Handshake, Check, X } from "lucide-react";
+import { Users, User, Settings, LogOut, Handshake, Check, X, MessageCircle } from "lucide-react";
 import { PanelLeft } from "lucide-react";
 import { io } from "socket.io-client";
+import { useChat } from "@/components/chat/ChatContext";
 
 type UserType = {
   name: string;
@@ -34,6 +35,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   const menuRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<HTMLDivElement>(null);
+
+  const {
+    conversations,
+    friends,
+    onlineUsers,
+    openChat,
+    startChat,
+  } = useChat();
+
+  const [showMessages, setShowMessages] =
+    useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -292,6 +304,201 @@ export default function Header({ onMenuClick }: HeaderProps) {
       {/* ✅ RIGHT SECTION — SAME DESIGN */}
       <div className="flex items-center gap-4 relative text-gray-600 hover:cursor-pointer">
         
+        {/* MESSAGES */}
+
+        <div className="relative">
+          <button
+            onClick={() =>
+              setShowMessages(
+                (previous) => !previous
+              )
+            }
+            className="
+              w-9
+              h-9
+              rounded-full
+              hover:bg-gray-100
+              flex
+              items-center
+              justify-center
+              relative
+            "
+          >
+            <MessageCircle size={19} />
+
+            {conversations.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+            )}
+          </button>
+
+          {showMessages && (
+            <div
+              className="
+                absolute
+                right-0
+                top-11
+                w-[340px]
+                bg-white
+                border
+                rounded-2xl
+                shadow-2xl
+                overflow-hidden
+                z-[100]
+              "
+            >
+              <div className="px-4 py-3 border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg">
+                  Messages
+                </h3>
+
+                <button
+                  onClick={() =>
+                    setShowMessages(false)
+                  }
+                  className="text-gray-400 hover:text-gray-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto">
+
+                {/* EXISTING CONVERSATIONS */}
+
+                {conversations.length > 0 && (
+                  <>
+                    {conversations.map(
+                      (conversation) => (
+                        <button
+                          key={
+                            conversation._id
+                          }
+                          onClick={() => {
+                            openChat(
+                              conversation
+                            );
+
+                            setShowMessages(
+                              false
+                            );
+                          }}
+                          className="
+                            w-full
+                            flex
+                            items-center
+                            gap-3
+                            px-4
+                            py-3
+                            hover:bg-gray-50
+                            text-left
+                          "
+                        >
+                          <div className="relative shrink-0">
+                            <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-200">
+                              {conversation.user
+                                .image ? (
+                                <img
+                                  src={`${process.env.NEXT_PUBLIC_IMAGE_BASE_URL}${conversation.user.image}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center font-semibold">
+                                  {conversation.user.name?.charAt(
+                                    0
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {onlineUsers.includes(
+                              conversation.user._id
+                            ) && (
+                              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {
+                                conversation
+                                  .user.name
+                              }
+                            </p>
+
+                            <p className="text-sm text-gray-500 truncate">
+                              {conversation.lastMessage ||
+                                "Start conversation"}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    )}
+                  </>
+                )}
+
+                {/* FRIENDS */}
+
+                {friends.length > 0 && (
+                  <div className="border-t">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">
+                      Friends
+                    </div>
+
+                    {friends.map((friend) => (
+                      <button
+                        key={friend._id}
+                        onClick={() => {
+                          startChat(friend);
+
+                          setShowMessages(
+                            false
+                          );
+                        }}
+                        className="
+                          w-full
+                          flex
+                          items-center
+                          gap-3
+                          px-4
+                          py-3
+                          hover:bg-gray-50
+                          text-left
+                        "
+                      >
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
+                          {friend.image ? (
+                            <img
+                              src={`${process.env.NEXT_PUBLIC_IMAGE_BASE_URL}${friend.image}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              {friend.name?.charAt(
+                                0
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <span className="text-sm font-medium">
+                          {friend.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {conversations.length === 0 &&
+                  friends.length === 0 && (
+                    <div className="p-6 text-center text-sm text-gray-500">
+                      No conversations yet.
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* FRIEND REQUEST */}
         <div ref={requestRef} className="relative">
           <div onClick={toggleRequests}>
