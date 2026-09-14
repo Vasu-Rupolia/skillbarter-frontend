@@ -438,6 +438,7 @@ export default function ChatPage() {
 
       setInput("");
 
+      clearTimeout(typingTimeout.current);
       socketRef.current?.emit("stop_typing", {
         sender: currentUserId,
         receiver: selectedChat.user._id,
@@ -823,9 +824,36 @@ export default function ChatPage() {
 
                 <input
                   value={input}
-                  onChange={(e) =>
-                    setInput(e.target.value)
-                  }
+                  // onChange={(e) =>
+                  //   setInput(e.target.value)
+                  // }
+                  onChange={(e) => {
+                    setInput(e.target.value);
+
+                      if (!socketRef.current || !selectedChat) return;
+
+                      socketRef.current.emit("typing", {
+                          sender: currentUserId,
+                          receiver: selectedChat.user._id,
+                      });
+
+                      clearTimeout(typingTimeout.current);
+
+                      typingTimeout.current = setTimeout(() => {
+                          socketRef.current?.emit("stop_typing", {
+                              sender: currentUserId,
+                              receiver: selectedChat.user._id,
+                          });
+                      }, 1000);
+                  }}
+                  onBlur={() => {
+                      if (!selectedChat) return;
+
+                      socketRef.current?.emit("stop_typing", {
+                          sender: currentUserId,
+                          receiver: selectedChat.user._id,
+                      });
+                  }}
                   placeholder="Type a message..."
                   className="flex-1 h-12 px-4 rounded-full border outline-none focus:ring-2 focus:ring-blue-500"
                   onKeyDown={(e) =>
