@@ -130,6 +130,17 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-sm text-gray-500 mt-6">
+          New User?
+
+          <span
+            onClick={() => router.push("/login")}
+            className="ml-1 text-red-600 font-medium cursor-pointer hover:underline"
+          >
+            Create an account
+          </span>
+        </p>
+
+          <p className="text-center text-sm text-gray-500 mt-6">
             Secure login powered by Skill Barter
           </p>
         </form>
